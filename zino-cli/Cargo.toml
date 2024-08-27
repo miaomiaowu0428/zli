@@ -47,3 +47,5 @@ features = ["axum"]
 [dependencies.zino-core]
 path = "../zino-core"
 version = "0.25.2"
+
+[workspace]
