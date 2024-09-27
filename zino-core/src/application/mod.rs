@@ -45,9 +45,15 @@ use crate::{
     trace::TraceContext,
     LazyLock, Map,
 };
+use ahash::{HashMap, HashMapExt};
 use reqwest::Response;
 use serde::de::DeserializeOwned;
-use std::{env, fs, path::PathBuf, thread};
+use std::{
+    borrow::Cow,
+    env, fs,
+    path::{Path, PathBuf},
+    thread,
+};
 use toml::value::Table;
 
 #[cfg(feature = "openapi")]
@@ -117,19 +123,11 @@ pub trait Application {
         crate::view::init::<Self>();
 
         // Initializes the directories to ensure that they are ready for use
-        if let Some(dirs) = SHARED_APP_STATE.get_config("dirs") {
-            let project_dir = Self::project_dir();
-            for dir in dirs.values().filter_map(|v| v.as_str()) {
-                let path = if dir.starts_with('/') {
-                    PathBuf::from(dir)
-                } else {
-                    project_dir.join(dir)
-                };
-                if !path.exists() {
-                    if let Err(err) = fs::create_dir_all(&path) {
-                        let path = path.display();
-                        tracing::error!("fail to create the directory {path}: {err}");
-                    }
+        for path in SHARED_DIRS.values() {
+            if !path.exists() {
+                if let Err(err) = fs::create_dir_all(path) {
+                    let path = path.display();
+                    tracing::error!("fail to create the directory {path}: {err}");
                 }
             }
         }
@@ -199,7 +197,7 @@ pub trait Application {
     /// Returns a reference to the shared application state.
     #[inline]
     fn shared_state() -> &'static State<Map> {
-        LazyLock::force(&SHARED_APP_STATE)
+        &SHARED_APP_STATE
     }
 
     /// Returns the application env.
@@ -238,12 +236,6 @@ pub trait Application {
         APP_DOMAIN.as_ref()
     }
 
-    /// Returns the project directory for the application.
-    #[inline]
-    fn project_dir() -> &'static PathBuf {
-        LazyLock::force(&PROJECT_DIR)
-    }
-
     /// Returns the secret key for the application.
     /// It should have at least 64 bytes.
     ///
@@ -255,18 +247,46 @@ pub trait Application {
         SECRET_KEY.get().expect("fail to get the secret key")
     }
 
-    /// Returns the shared directory with the specific name,
+    /// Returns the project directory for the application.
+    #[inline]
+    fn project_dir() -> &'static PathBuf {
+        &PROJECT_DIR
+    }
+
+    /// Returns the config directory for the application.
+    ///
+    /// # Note
+    ///
+    /// The default config directory is `${PROJECT_DIR}/config`.
+    /// It can also be specified by the environment variable `ZINO_APP_CONFIG_DIR`.
+    #[inline]
+    fn config_dir() -> &'static PathBuf {
+        &CONFIG_DIR
+    }
+
+    /// Returns the shared directory with a specific name,
     /// which is defined in the `dirs` table.
-    fn shared_dir(name: &str) -> PathBuf {
-        let path = if let Some(path) = SHARED_APP_STATE
-            .get_config("dirs")
-            .and_then(|t| t.get_str(name))
-        {
-            path
-        } else {
-            name
-        };
-        Self::project_dir().join(path)
+    ///
+    /// # Examples
+    ///
+    /// ```toml
+    /// [dirs]
+    /// data = "/data/zino" # an absolute path
+    /// cache = "~/zino/cache" # a path in the home dir
+    /// assets = "local/assets" # a path in the project dir
+    /// ```
+    #[inline]
+    fn shared_dir(name: &str) -> Cow<'_, PathBuf> {
+        SHARED_DIRS
+            .get(name)
+            .map(Cow::Borrowed)
+            .unwrap_or_else(|| Cow::Owned(Self::parse_path(name)))
+    }
+
+    /// Parses an absolute path, or a path relative to the home dir `~/` or project dir.
+    #[inline]
+    fn parse_path(path: &str) -> PathBuf {
+        join_path(&PROJECT_DIR, path)
     }
 
     /// Spawns a new thread to run cron jobs.
@@ -336,6 +356,21 @@ pub trait Application {
     }
 }
 
+/// Joins a path to the specific dir.
+pub(crate) fn join_path(dir: &Path, path: &str) -> PathBuf {
+    if path.starts_with('/') {
+        path.into()
+    } else if let Some(path) = path.strip_prefix("~/") {
+        if let Some(home_dir) = dirs::home_dir() {
+            home_dir.join(path)
+        } else {
+            dir.join(path)
+        }
+    } else {
+        dir.join(path)
+    }
+}
+
 /// App name.
 pub(crate) static APP_NMAE: LazyLock<&'static str> = LazyLock::new(|| {
     SHARED_APP_STATE
@@ -380,6 +415,26 @@ pub(crate) static PROJECT_DIR: LazyLock<PathBuf> = LazyLock::new(|| {
             env::current_dir()
                 .expect("project directory does not exist or permissions are insufficient")
         })
+});
+
+/// The config directory.
+pub(crate) static CONFIG_DIR: LazyLock<PathBuf> = LazyLock::new(|| {
+    env::var("ZINO_APP_CONFIG_DIR")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| PROJECT_DIR.join("config"))
+});
+
+/// Shared directories.
+static SHARED_DIRS: LazyLock<HashMap<String, PathBuf>> = LazyLock::new(|| {
+    let mut dirs = HashMap::new();
+    if let Some(config) = SHARED_APP_STATE.get_config("dirs") {
+        for (key, value) in config {
+            if let Some(path) = value.as_str() {
+                dirs.insert(key.to_owned(), join_path(&PROJECT_DIR, path));
+            }
+        }
+    }
+    dirs
 });
 
 /// Shared app state.

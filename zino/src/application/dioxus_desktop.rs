@@ -1,7 +1,8 @@
 use dioxus::prelude::*;
 use dioxus_desktop::{
-    tao::window::{Icon, Theme},
+    tao::window::{Fullscreen, Icon, Theme},
     Config, WindowBuilder,
+    WindowCloseBehaviour::*,
 };
 use dioxus_router::{components::Router, routable::Routable};
 use image::{error::ImageError, ImageReader};
@@ -40,10 +41,12 @@ where
 {
     type Routes = R;
 
+    #[inline]
     fn register(self, _routes: Self::Routes) -> Self {
         self
     }
 
+    #[inline]
     fn add_plugin(mut self, plugin: Plugin) -> Self {
         self.custom_plugins.push(plugin);
         self
@@ -76,8 +79,6 @@ where
         let app_name = Self::name();
         let app_version = Self::version();
         let app_state = Self::shared_state();
-        let project_dir = Self::project_dir();
-        let in_prod_mode = app_env.is_prod();
 
         // Window configuration
         let mut window_title = app_name;
@@ -88,6 +89,9 @@ where
             if let Some(title) = config.get_str("title") {
                 app_window = app_window.with_title(title);
                 window_title = title;
+            }
+            if config.get_bool("fullscreen").is_some_and(|b| b) {
+                app_window = app_window.with_fullscreen(Some(Fullscreen::Borderless(None)));
             }
             if let Some(resizable) = config.get_bool("resizable") {
                 app_window = app_window.with_resizable(resizable);
@@ -116,6 +120,12 @@ where
             if let Some(always_on_top) = config.get_bool("always-on-top") {
                 app_window = app_window.with_always_on_top(always_on_top);
             }
+            if let Some(protected) = config.get_bool("content-protection") {
+                app_window = app_window.with_content_protection(protected);
+            }
+            if let Some(visible) = config.get_bool("visible-on-all-workspaces") {
+                app_window = app_window.with_visible_on_all_workspaces(visible);
+            }
             if let Some(theme) = config.get_str("theme") {
                 let theme = match theme {
                     "Light" => Theme::Light,
@@ -129,14 +139,14 @@ where
         // Desktop configuration
         let mut desktop_config = Config::new()
             .with_window(app_window)
-            .with_disable_context_menu(in_prod_mode)
+            .with_disable_context_menu(if cfg!(debug_assertions) { false } else { true })
             .with_menu(None);
         if let Some(config) = app_state.get_config("desktop") {
             let mut custom_heads = Vec::new();
             custom_heads.push(r#"<meta charset="UTF-8">"#.to_owned());
 
             let icon = config.get_str("icon").unwrap_or("public/favicon.ico");
-            let icon_file = project_dir.join(icon);
+            let icon_file = Self::parse_path(icon);
             if icon_file.exists() {
                 match ImageReader::open(&icon_file)
                     .map_err(ImageError::IoError)
@@ -179,13 +189,13 @@ where
             desktop_config = desktop_config.with_custom_head(custom_heads.join("\n"));
 
             if let Some(dir) = config.get_str("resource-dir") {
-                desktop_config = desktop_config.with_resource_directory(project_dir.join(dir));
+                desktop_config = desktop_config.with_resource_directory(Self::parse_path(dir));
             }
             if let Some(dir) = config.get_str("data-dir") {
-                desktop_config = desktop_config.with_data_directory(project_dir.join(dir));
+                desktop_config = desktop_config.with_data_directory(Self::parse_path(dir));
             }
             if let Some(custom_index) = config.get_str("custom-index") {
-                let index_file = project_dir.join(custom_index);
+                let index_file = Self::parse_path(custom_index);
                 match fs::read_to_string(&index_file) {
                     Ok(custom_index) => {
                         desktop_config = desktop_config.with_custom_index(custom_index);
@@ -198,6 +208,14 @@ where
             }
             if let Some(name) = config.get_str("root-name") {
                 desktop_config = desktop_config.with_root_name(name);
+            }
+            if let Some(behaviour) = config.get_str("close-behaviour") {
+                let behaviour = match behaviour {
+                    "CloseWindow" => CloseWindow,
+                    "LastWindowHides" => LastWindowHides,
+                    _ => LastWindowExitsApp,
+                };
+                desktop_config = desktop_config.with_close_behaviour(behaviour);
             }
         }
 

@@ -23,7 +23,7 @@ which emphasizes **simplicity**, **extensibility** and **productivity**.
 ## Getting started
 
 You can start with the example [`actix-app`], [`axum-app`], [`dioxus-desktop`] or [`ntex-app`].
-It requires **Rust 1.75+** to build the project.
+It requires **Rust 1.80+** to build the project.
 
 ```shell
 cd examples/axum-app
@@ -38,7 +38,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-zino = { version = "0.24", features = ["axum"] }
+zino = { version = "0.25", features = ["axum"] }
 ```
 
 ```rust
@@ -58,6 +58,7 @@ fn main() {
 | [`zino-model`]  | Domain models.         | [![Crates.io](https://img.shields.io/crates/v/zino-model)][zino-model] | [![Documentation](https://shields.io/docsrs/zino-model)][zino-model-docs] |
 | [`zino-extra`]  | Extra utilities.       | [![Crates.io](https://img.shields.io/crates/v/zino-extra)][zino-extra] | [![Documentation](https://shields.io/docsrs/zino-extra)][zino-extra-docs] |
 | [`zino-dioxus`] | Dioxus components.     | [![Crates.io](https://img.shields.io/crates/v/zino-dioxus)][zino-dioxus] | [![Documentation](https://shields.io/docsrs/zino-dioxus)][zino-dioxus-docs] |
+| [`zino-amis`]   | UI generator for amis. | [![Crates.io](https://img.shields.io/crates/v/zino-amis)][zino-amis] | [![Documentation](https://shields.io/docsrs/zino-amis)][zino-amis-docs] |
 | [`zino-cli`]    | CLI tools.             | [![Crates.io](https://img.shields.io/crates/v/zino-cli)][zino-cli] | [![Documentation](https://shields.io/docsrs/zino-cli)][zino-cli-docs] |
 
 ## License
@@ -73,6 +74,7 @@ If you have any problems or ideas, please don't hesitate to [open an issue][zino
 [`zino-model`]: https://github.com/zino-rs/zino/tree/main/zino-model
 [`zino-extra`]: https://github.com/zino-rs/zino/tree/main/zino-extra
 [`zino-dioxus`]: https://github.com/zino-rs/zino/tree/main/zino-dioxus
+[`zino-amis`]: https://github.com/zino-rs/zino/tree/main/zino-amis
 [`zino-cli`]: https://github.com/zino-rs/zino/tree/main/zino-cli
 [zino]: https://crates.io/crates/zino
 [zino-docs]: https://docs.rs/zino
@@ -86,6 +88,8 @@ If you have any problems or ideas, please don't hesitate to [open an issue][zino
 [zino-extra-docs]: https://docs.rs/zino-extra
 [zino-dioxus]: https://crates.io/crates/zino-dioxus
 [zino-dioxus-docs]: https://docs.rs/zino-dioxus
+[zino-amis]: https://crates.io/crates/zino-amis
+[zino-amis-docs]: https://docs.rs/zino-amis
 [zino-cli]: https://crates.io/crates/zino-cli
 [zino-cli-docs]: https://docs.rs/zino-cli
 [`sqlx`]: https://crates.io/crates/sqlx

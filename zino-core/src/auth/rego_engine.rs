@@ -103,14 +103,14 @@ impl RegoEngine {
     /// Returns a reference to the shared Rego engine.
     #[inline]
     pub fn shared() -> &'static Self {
-        LazyLock::force(&SHARED_REGO_ENGINE)
+        &SHARED_REGO_ENGINE
     }
 }
 
 /// Shared Rego evaluation engine.
 static SHARED_REGO_ENGINE: LazyLock<RegoEngine> = LazyLock::new(|| {
     let engine = RegoEngine::new();
-    let opa_dir = application::PROJECT_DIR.join("./config/opa");
+    let opa_dir = application::CONFIG_DIR.join("opa");
     match fs::read_dir(opa_dir) {
         Ok(entries) => {
             let files = entries.filter_map(|entry| entry.ok());

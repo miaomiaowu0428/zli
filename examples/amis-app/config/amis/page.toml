@@ -1,0 +1,10 @@
+asideResizor = true
+
+[aside]
+include = "aside"
+
+[toolbar]
+include = "toolbar"
+
+[[body]]
+include = "overview"
